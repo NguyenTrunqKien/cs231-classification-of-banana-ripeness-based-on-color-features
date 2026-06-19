@@ -7,7 +7,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 
 from src.utils import load_images_from_folder
-from src.feature_extractor import compute_feature
+from src.DCM_feature_extractor import compute_feature
 from src.segmentation import process_banana_224
 from src.augmentation import augment_image
 
