@@ -2,25 +2,22 @@ import numpy as np
 import cv2
 import joblib
 import matplotlib.pyplot as plt
+import argparse
 
-from src.feature_extractor import compute_feature
+from src.DCM_feature_extractor import compute_feature
+from src.FCH_feature_extractor import extract_combined_features
 from src.segmentation import process_banana_224
 from src.utils import show_image
 
-def predict_new_image(image_path, model, scaler, class_names):
+def predict_new_image(image_path, model, scaler, class_names, method):
     # 1. Đọc ảnh mới
     raw_img = cv2.imread(image_path)
     if raw_img is None:
         print("Không đọc được ảnh!")
         return
 
-    # 2. Phân đoạn để lấy vùng chứa quả chuối (tránh dùng biến global)
-    # manual_mode=False để YOLO tự chạy
+    # 2. Phân đoạn để lấy vùng chứa quả chuối 
     final_img, final_mask = process_banana_224(raw_img)
-
-    # Hiển thị ảnh final_img và final_mask
-    show_image(final_img)
-    show_image(final_mask)
 
     # Kiểm tra nếu phân đoạn thất bại
     if final_img is None or final_mask is None:
@@ -29,8 +26,15 @@ def predict_new_image(image_path, model, scaler, class_names):
         final_img = np.zeros((224, 224, 3), dtype=np.uint8)
         final_mask = np.zeros((224, 224), dtype=np.uint8)
 
+    # Hiển thị ảnh final_img và final_mask
+    show_image(final_img)
+    show_image(final_mask)
+
     # Trích xuất đặc trưng
-    feature = compute_feature(final_img, final_mask)
+    if(method == "DCM"):
+        feature = compute_feature(final_img, final_mask)
+    else:
+        feature = extract_combined_features(final_img, final_mask)
 
     if not feature:
         print("Lỗi trích xuất đặc trưng!")
@@ -60,9 +64,31 @@ def predict_new_image(image_path, model, scaler, class_names):
 
     print(f"--- KẾT QUẢ CUỐI CÙNG: {label} ---")
 
-model_path, scaler_path='models/knn_banana_model.pkl', 'models/scaler.pkl'
-my_model = joblib.load(model_path)
-my_scaler = joblib.load(scaler_path)
-class_names = ['Overripe', 'Ripe', 'Unripe']
+if __name__ == "__main__":
+    # Khởi tạo bộ phân tích tham số dòng lệnh
+    parser = argparse.ArgumentParser(description="Dự đoán độ chín của quả chuối bằng mô hình ML.")
+    
+    # Định nghĩa tham số --image (bắt buộc phải truyền vào)
+    parser.add_argument("--image", type=str, required=True, help="Đường dẫn tới file ảnh cần dự đoán")
+    
+    # Parse các tham số truyền từ CMD
+    args = parser.parse_args()
 
-predict_new_image("/content/dd.png", my_model, my_scaler, class_names)
+    # Giữ nguyên phần nhập phương pháp từ bàn phím như code cũ của bạn
+    method = input("Hãy chọn phương pháp DCM hay FCH: ").strip().upper()
+
+    if method in ["DCM", "FCH"]:
+        model_path = f"models/{method}/knn_banana_model.pkl"
+        scaler_path = f"models/{method}/scaler.pkl"
+
+        my_model = joblib.load(model_path)
+        my_scaler = joblib.load(scaler_path)
+        
+        print(f"Đang tiến hành đánh giá cho phương pháp: {method}")
+        
+        class_names = ['Overripe', 'Ripe', 'Unripe']
+
+        # 3. Truyền args.image (đường dẫn lấy từ CMD) vào hàm predict
+        predict_new_image(args.image, my_model, my_scaler, class_names, method)
+    else:
+        print("Lỗi: Phương pháp nhập vào không hợp lệ! Vui lòng chỉ chọn 'DCM' hoặc 'FCH'.")

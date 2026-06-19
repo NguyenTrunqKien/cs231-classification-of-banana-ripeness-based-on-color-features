@@ -7,7 +7,8 @@ from tqdm import tqdm
 from sklearn.metrics import f1_score, classification_report, confusion_matrix
 
 from src.utils import load_images_from_folder
-from src.feature_extractor import compute_feature
+from src.DCM_feature_extractor import compute_feature
+from src.FCH_feature_extractor import extract_combined_features
 from src.segmentation import process_banana_224
 
 def evaluate(name, y_true, y_pred):
@@ -33,7 +34,7 @@ def evaluate(name, y_true, y_pred):
     plt.show()
 
 
-def evaluate_model(model_path='models/knn_banana_model.pkl', scaler_path='models/scaler.pkl'):
+def evaluate_model(model_path, scaler_path, method):
     # Load model và scaler đã lưu
     model = joblib.load(model_path)
     scaler = joblib.load(scaler_path)
@@ -56,19 +57,21 @@ def evaluate_model(model_path='models/knn_banana_model.pkl', scaler_path='models
         # 1. Phân đoạn ảnh gốc để lấy mask chuẩn
         final_img, final_mask = process_banana_224(img)
 
-    # Kiểm tra nếu phân đoạn thất bại
-    if final_img is None or final_mask is None:
-        print("Phân đoạn quả chuối thất bại")
-        # Sử dụng ảnh đen và mask đen thay thế để các hàm sau không bị lỗi logic
-        final_img = np.zeros((224, 224, 3), dtype=np.uint8)
-        final_mask = np.zeros((224, 224), dtype=np.uint8)
+        # Kiểm tra nếu phân đoạn thất bại
+        if final_img is None or final_mask is None:
+            print("Phân đoạn quả chuối thất bại")
+            # Sử dụng ảnh đen và mask đen thay thế để các hàm sau không bị lỗi logic
+            final_img = np.zeros((224, 224, 3), dtype=np.uint8)
+            final_mask = np.zeros((224, 224), dtype=np.uint8)
 
-    # Trích xuất đặc trưng
-    feature = compute_feature(final_img, final_mask)
+        if(method == "DCM"):
+            feature = compute_feature(final_img, final_mask)
+        else:
+            feature = extract_combined_features(final_img, final_mask)
 
-    if feature is not None:
-        X_test.append(feature)
-        y_test.append(test_labels[idx])
+        if feature is not None:
+            X_test.append(feature)
+            y_test.append(test_labels[idx])
 
     # Chuyển sang numpy array
     X_test = np.array(X_test)
@@ -84,4 +87,14 @@ def evaluate_model(model_path='models/knn_banana_model.pkl', scaler_path='models
     print("\n📊 BÁO CÁO CHI TIẾT TRÊN TẬP KIỂM TRA (TEST SET):")
     evaluate("Test", y_test, y_test_pred)
 
-evaluate_model()
+method = input("Hãy chọn phương pháp DCM hay FCH: ").strip().upper()
+
+if method in ["DCM", "FCH"]:
+    model_path = f"models/{method}/knn_banana_model.pkl"
+    scaler_path = f"models/{method}/scaler.pkl"
+    
+    print(f"Đang tiến hành đánh giá cho phương pháp: {method}")
+    
+    evaluate_model(model_path, scaler_path, method)
+else:
+    print("Lỗi: Phương pháp nhập vào không hợp lệ! Vui lòng chỉ chọn 'DCM' hoặc 'FCH'.")
