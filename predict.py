@@ -36,7 +36,7 @@ def predict_new_image(image_path, model, scaler, class_names, method):
     else:
         feature = extract_combined_features(final_img, final_mask)
 
-    if not feature:
+    if feature is None:
         print("Lỗi trích xuất đặc trưng!")
         return
 
